@@ -1,0 +1,423 @@
+// ============================================
+// Zag 17.0 example — covers every core construct in the language spec
+//
+// Compile and run:  python -m bootstrap.main examples/example.zag --run
+// Run tests:    python -m bootstrap.main examples/example.zag --test
+// Inspect only the generated Zig: python -m bootstrap.main examples/example.zag -o example.zig
+// ============================================
+
+// 2. Standard library import
+const std = @import("std")
+
+// A single page allocator reused across the whole program
+const allocator = std.select("gpa")
+
+// 12. Constant
+const PI = 3.14159
+
+// 4. Types (Zag's four base types)
+const num: int = 255
+const pi: float = 3.14
+const flag: bool = true
+const name: string = "Zag"
+
+// 5. Type inference
+const n = 42
+
+// 31. Import a custom module (.zag is auto-compiled to .zig by the compiler)
+const myModule = @import("mymod.zag")
+
+// 34. Conditional compilation: builtin information
+const builtin = @import("builtin")
+const isWindows = builtin.os.tag == .windows
+
+// 33. External function declaration (implementation provided by C)
+extern fn cFunction() void
+
+// 32. Exported function (callable from C)
+export fn exported() void {
+    // This function is visible to C
+}
+
+// 1. Entry point (uses try in the demo, so main returns an error union)
+pub fn main() !void {
+    std.print("Hello, Zag")
+    std.print(42)
+    std.print("==== Zag syntax tour ====")
+
+    basicDemo()
+    operatorDemo()
+    controlDemo()
+    loopDemo()
+    functionDemo()
+    fourDemo()
+    optionalDemo()
+    errorDemo()
+    try tryDemo()
+    compositeDemo()
+    pointerDemo()
+    try memoryDemo()
+    deferDemo()
+    genericDemo()
+    builtinDemo()
+    importDemo()
+    newSyntaxDemo()
+
+    std.print("==== tour complete ====")
+}
+
+// 3. Variables and constants (the Four Pillars)
+fn basicDemo() void {
+    // const: immutable; error if reassigned, also error if unused
+    const x = 10
+    std.print(x)
+
+    // var: mutable; error if never mutated after declaration
+    var y = 20
+    y = 21
+    std.print(y)
+
+    // const?: const-safe — attempts to mutate are silently ignored, program continues
+    const? z = 30
+    z = 99
+    std.print(z) // still 30
+
+    // var.: declaration-safe — unused/unmutated silently ignored, never errors
+    var. a = 40
+}
+
+// 6. Operators
+fn operatorDemo() void {
+    const sum = 1 + 2
+    const diff = 3 - 1
+    const prod = 2 * 3
+    const quot = 6 / 2
+    const rem = 7 % 3
+    const eq = 1 == 1
+    const ne = 1 != 2
+    const lt = 1 < 2
+    const ge = 2 >= 2
+    const le = 2 <= 2
+    const logic = true and false
+    const notExpr = not false
+    std.print(sum)
+    std.print(diff)
+    std.print(prod)
+    std.print(quot)
+    std.print(rem)
+    std.print(eq)
+    std.print(ne)
+    std.print(lt)
+    std.print(ge)
+    std.print(le)
+    std.print(logic)
+    std.print(notExpr)
+}
+
+// 7. Conditionals / 8. Ternary expression (Zag's if is an expression)
+fn controlDemo() void {
+    const x = 7
+
+    if (x > 5) {
+        std.print("big")
+    } else {
+        std.print("small")
+    }
+
+    const result = if (x > 5) "large" else "small"
+    std.print(result)
+
+    // else-if chain, with else written on the next line (dangling else)
+    if (x > 100) {
+        std.print("huge")
+    } else if (x > 5) {
+        std.print("big")
+    }
+    else {
+        std.print("small")
+    }
+}
+
+// 9. Loops (classic C-family)
+fn loopDemo() void {
+    var i = 0
+    while (i < 3) {
+        std.print(i)
+        i++
+    }
+
+    for (var j = 0; j < 3; j++) {
+        std.print(j)
+    }
+}
+
+// 10. Functions / 11. No return value
+fn add(a: int, b: int) int {
+    return a + b
+}
+
+fn hello() void {
+    std.print("hello")
+}
+
+fn functionDemo() void {
+    std.print(add(1, 2))
+    hello()
+}
+
+// The Four Pillars in one place
+fn fourDemo() void {
+    const c = 1 // const: must be used
+    std.print(c)
+
+    var v = 2 // var: must be mutated
+    v = 3
+    std.print(v)
+
+    const? cs = 4 // const?: mutations silently ignored
+    cs = 999
+    std.print(cs)
+
+    var. vs = 5 // var.: never errors
+}
+
+// 19. Optional types
+fn optionalDemo() void {
+    var maybe: ?int = null
+    maybe = 5
+    if (maybe) |val| {
+        std.print(val)
+    }
+
+    const nothing: ?int = null
+    const fallback = nothing orelse 0
+    std.print(fallback)
+}
+
+// 16. Error handling / 18. catch capture
+const MyError = error{ Bad, Worse }
+
+fn mayFail() !void {
+    return error.Something
+}
+
+fn risky(fail: bool) MyError!int {
+    if (fail) {
+        return error.Worse
+    }
+    return 1
+}
+
+fn errorDemo() void {
+    // catch captures the error; the last expression in the block becomes its value
+    const v = risky(false) catch |err| {
+        std.print("an error occurred")
+        std.print(@errorName(err))
+        0
+    }
+    std.print(v)
+
+    // catch on a void error
+    mayFail() catch |err| {
+        std.print("failed")
+        std.print(@errorName(err))
+    }
+}
+
+// 17. try propagates errors upward
+fn tryDemo() !void {
+    const r = try risky(false)
+    std.print(r)
+    std.print("try demo done")
+}
+
+// 14. Arrays / 15. Slices / 20. Destructuring / 21. Structs / 22. Enums / 23. Unions
+const Point = struct {
+    x: int,
+    y: int
+}
+
+const Color = enum {
+    red,
+    green,
+    blue
+}
+
+const Value = union {
+    i: int,
+    f: float
+}
+
+fn compositeDemo() void {
+    const arr = [1, 2, 3]
+    const first = arr[0]
+    const len = arr.len
+    std.print(first)
+    std.print(len)
+
+    const slice = arr[0..2]
+    const tail = arr[1..]
+    std.print(slice[0])
+    std.print(tail[0])
+
+    // 20. Destructuring
+    const pointArr = [10, 20]
+    const [px, py] = pointArr
+    std.print(px)
+    std.print(py)
+
+    // 21. Structs
+    const p = Point{ .x = 3, .y = 4 }
+    std.print(p.x)
+    std.print(p.y)
+
+    // 22. Enums
+    const c = Color.green
+    if (c == Color.green) {
+        std.print("green")
+    }
+
+    // 23. Unions
+    const v = Value{ .i = 42 }
+    std.print(v.i)
+}
+
+// 24. Pointers ($ is Zag's dereference, replacing Zig's .*)
+fn pointerDemo() void {
+    var numVar: int = 42
+    const ptr = &numVar
+    $ptr = 100
+    std.print(numVar)
+}
+
+// 25. Allocator (minimal three-step)
+fn memoryDemo() !void {
+    var. mem = try allocator.allocator(100)
+    allocator.free(mem)
+    std.print("memory demo done")
+}
+
+// 26. defer deferred execution
+fn deferDemo() void {
+    defer {
+        std.print("defer block")
+    }
+    defer std.print("defer single expression")
+    std.print("defer demo")
+}
+
+// 27. Compile-time execution
+comptime {
+    var total: int = 0
+    for (var k = 1; k <= 10; k++) {
+        total = total + k
+    }
+    std.debug.assert(total == 55) // compile-time assertion
+}
+
+// 28. Generics (comptime parameter)
+fn maxOf(comptime T: type, a: T, b: T) T {
+    if (a > b) {
+        return a
+    }
+    return b
+}
+
+// 29. Inline
+inline fn fastAdd(a: int, b: int) int {
+    return a + b
+}
+
+fn genericDemo() void {
+    std.print(maxOf(int, 3, 7))
+    std.print(fastAdd(2, 3))
+}
+
+// 30. Builtin functions
+fn builtinDemo() void {
+    const size = @sizeOf(int)
+    const typeName = @typeName(int)
+    std.print(size)
+    std.print(typeName)
+
+    if (isWindows) {
+        std.print("windows")
+    } else {
+        std.print("not windows")
+    }
+}
+
+// 31. Using the imported module
+fn importDemo() void {
+    std.print(myModule.greet())
+}
+
+// 35. New syntax: class, std.List, std.Map, string methods (explicit allocator)
+//
+// `class` is sugar for `struct` with methods and an automatic `self` receiver.
+// Collections take an explicit allocator; string ops that need heap memory
+// also take the allocator.
+class Counter {
+    count: int,
+    fn increment(self) void {
+        self.count = self.count + 1
+    }
+    fn value(self) int {
+        return self.count
+    }
+}
+
+fn newSyntaxDemo() void {
+    // List with an explicit allocator
+    var nums = std.List(int, allocator)
+    nums.append(10)
+    nums.append(20)
+    nums.append(30)
+    std.print(nums.len)    // 3
+    std.print(nums[1])     // 20
+
+    // Map with an explicit allocator
+    var scores = std.Map(string, int, allocator)
+    scores.set("alice", 90)
+    scores.set("bob", 75)
+    std.print(scores.len)  // 2 (count)
+    const bob = scores.get("bob")
+    if (bob) |v| {
+        std.print(v)       // 75
+    }
+
+    // String methods
+    const hi = "hello"
+    const shout = hi.to_upper(allocator)
+    std.print(shout)       // HELLO
+    const pos = hi.find("ll")
+    std.print(pos)         // 2
+
+    // Concatenation with an explicit allocator
+    const full = "num" + "42" using allocator
+    std.print(full)        // num42
+
+    // Class with an automatic self receiver
+    var c = Counter{ .count = 0 }
+    c.increment()
+    c.increment()
+    std.print(c.value())   // 2
+}
+
+// 35. Tests
+test "add" {
+    try std.testing.expect(add(1, 2) == 3)
+}
+
+test "maxOf" {
+    try std.testing.expect(maxOf(int, 3, 7) == 7)
+}
+
+test "fastAdd" {
+    try std.testing.expect(fastAdd(2, 3) == 5)
+}
+
+// 13. Comments: // single-line, /// doc, /* multi-line */
+/// This is a documentation comment
+/* This is
+    multi-line comment */
