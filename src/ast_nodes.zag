@@ -1,0 +1,36 @@
+// AST node definitions for the self-hosted Zag compiler.
+//
+// Instead of many typed node classes (which would require runtime type casts
+// that plain Zag structs cannot express), we use a single generic Node tree
+// discriminated by a `kind` string. Scalar attributes live in `attrs`
+// (string -> string); nested nodes (params, statements, operands) live in
+// `children`. This keeps the whole compiler expressible in ordinary Zag.
+
+const std = @import("std")
+const allocator = std.select("gpa")
+
+// A lexical token produced by the lexer.
+class Token {
+    kind: string,
+    text: string,
+    line: usize,
+    col: usize,
+}
+
+// A generic AST node.
+class Node {
+    kind: string,
+    text: string,
+    attrs: std.Map(string, string),
+    children: std.List(Node),
+    line: usize,
+    col: usize,
+
+    fn set(self, k: string, v: string) void {
+        self.attrs.set(k, v)
+    }
+
+    fn add(self, c: Node) void {
+        self.children.append(c)
+    }
+}
